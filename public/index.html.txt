@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Online Chat Box</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+body { margin: 0; font-family: Arial, sans-serif; background: #2c2f33; color: #fff; display: flex; height: 100vh; }
+#users { width: 200px; background: #23272a; padding: 10px; overflow-y: auto; }
+#users h3 { margin-top: 0; text-align: center; }
+#chat-container { flex: 1; display: flex; flex-direction: column; }
+#messages { flex: 1; overflow-y: scroll; padding: 10px; }
+.message { padding: 5px 10px; margin-bottom: 5px; border-radius: 5px; max-width: 80%; position: relative; }
+.message span { font-size: 0.8em; color: #aaa; margin-left: 5px; }
+.message button { margin-left: 5px; font-size: 0.7em; background: transparent; border: none; color: #fff; cursor: pointer; }
+#input-container { display: flex; padding: 10px; background: #23272a; }
+#message-input { flex: 1; padding: 10px; border: none; border-radius: 5px; }
+#send-btn { padding: 10px 20px; border: none; border-radius: 5px; margin-left: 10px; background: #7289da; color: #fff; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="users">
+    <h3>Online Users</h3>
+    <ul id="user-list"></ul>
+</div>
+<div id="chat-container">
+    <div id="messages"></div>
+    <div id="input-container">
+        <input id="message-input" placeholder="Type your message..." autocomplete="off" />
+        <button id="send-btn">Send</button>
+    </div>
+</div>
+
+<script>
+const socket = io();
+let username = '';
+while(!username) username = prompt("Enter your username:");
+socket.emit('set username', username);
+
+const messagesDiv = document.getElementById('messages');
+const input = document.getElementById('message-input');
+const button = document.getElementById('send-btn');
+const userList = document.getElementById('user-list');
+
+const colors = ['#ff6b6b','#feca57','#48dbfb','#1dd1a1','#5f27cd','#ee5253','#ff9ff3','#54a0ff','#00d2d3','#c8d6e5'];
+const userColor = colors[Math.floor(Math.random() * colors.length)];
+
+function addMessage(msg){
+    const div = document.createElement('div');
+    div.classList.add('message');
+    div.dataset.id = msg.id || '';
+    if(msg.system){
+        div.textContent = msg.text;
+        div.style.background = '#444';
+    } else {
+        div.innerHTML = `<strong style="color:${userColor}">${msg.user}</strong>: <span class="text">${msg.text}</span> <span>${msg.time}</span>`;
+        div.style.background = '#333';
+        if(msg.user === username){
+            const editBtn = document.createElement('button');
+            editBtn.textContent = '✏️';
+            editBtn.onclick = () => {
+                const newText = prompt("Edit your message:", msg.text);
+                if(newText) socket.emit('edit message', { id: msg.id, newText });
+            };
+            const delBtn = document.createElement('button');
+            delBtn.textContent = '🗑️';
+            delBtn.onclick = () => socket.emit('delete message', msg.id);
+            div.appendChild(editBtn);
+            div.appendChild(delBtn);
+        }
+    }
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+button.addEventListener('click', () => {
+    const msg = input.value.trim();
+    if(msg) { socket.emit('chat message', msg); input.value = ''; }
+});
+input.addEventListener('keypress', (e) => { if(e.key==='Enter') button.click(); });
+
+socket.on('chat message', addMessage);
+socket.on('edit message', ({id,newText}) => {
+    const div = document.querySelector(`.message[data-id="${id}"]`);
+    if(div) div.querySelector('.text').textContent = newText;
+});
+socket.on('delete message', id => {
+    const div = document.querySelector(`.message[data-id="${id}"]`);
+    if(div) div.remove();
+});
+socket.on('update users', users => {
+    userList.innerHTML = '';
+    users.forEach(u => { const li=document.createElement('li'); li.textContent=u; userList.appendChild(li); });
+});
+socket.on('load messages', msgs => { msgs.forEach(addMessage); });
+</script>
+</body>
+</html>
