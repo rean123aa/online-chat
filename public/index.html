@@ -6,7 +6,6 @@
 <title>Online Chat Box</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
-/* Same CSS as offline version */
 body { margin: 0; font-family: Arial, sans-serif; background: #2c2f33; color: #fff; display: flex; height: 100vh; }
 #users { width: 200px; background: #23272a; padding: 10px; overflow-y: auto; }
 #users h3 { margin-top: 0; text-align: center; }
@@ -14,8 +13,8 @@ body { margin: 0; font-family: Arial, sans-serif; background: #2c2f33; color: #f
 #messages { flex: 1; overflow-y: scroll; padding: 10px; display: flex; flex-direction: column; gap: 8px; position: relative; }
 .message { padding: 10px 15px; border-radius: 12px; max-width: 70%; display: inline-block; word-wrap: break-word; transition: background 0.2s; }
 .message:hover { background: #3a3d41; }
-.message span { font-size: 0.9em; color: #aaa; margin-left: 5px; }
-.message strong { font-size: 1em; }
+.message span { font-size: 1.1em; color: #aaa; margin-left: 5px; }
+.message strong { font-size: 1.3em; }
 .message.right { background: #7289da; align-self: flex-end; }
 .message.left { background: #333; align-self: flex-start; }
 .message button { margin-left: 5px; font-size: 0.8em; background: transparent; border: none; color: #fff; cursor: pointer; }
@@ -83,7 +82,6 @@ function addMessage(msg){
         div.appendChild(delBtn);
     }
 
-    // Emoji reactions
     const reactionDiv = document.createElement('div');
     reactionDiv.classList.add('reactions');
     const emojis = ['👍','❤️','😂','😮','😢','👏'];
@@ -97,7 +95,6 @@ function addMessage(msg){
     div.appendChild(reactionDiv);
 
     messagesDiv.appendChild(div);
-
     if (messagesDiv.scrollTop + messagesDiv.clientHeight < messagesDiv.scrollHeight - 50) {
         scrollBtn.style.display = 'block';
     } else {
@@ -111,14 +108,12 @@ scrollBtn.addEventListener('click', () => {
     scrollBtn.style.display = 'none';
 });
 
-// Send message
 button.addEventListener('click', () => {
     const msg = input.value.trim();
     if(msg){ socket.emit('chat message', msg); input.value = ''; }
 });
 input.addEventListener('keypress', e => { if(e.key==='Enter') button.click(); });
 
-// Socket.io events
 socket.on('chat message', addMessage);
 socket.on('edit message', ({id,newText}) => {
     const div = document.querySelector(`.message[data-id="${id}"]`);
