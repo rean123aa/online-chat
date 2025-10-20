@@ -1,49 +1,73 @@
 const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
+const http = require('http').createServer(app);
+const io = require('socket.io')(http);
 
 app.use(express.static('public'));
 
-let users = {};
-let messages = [];
+let messages = []; // Store all chat messages
+let users = [];
 
-io.on('connection', (socket) => {
-  socket.on('set username', (username) => {
-    users[socket.id] = username;
-    io.emit('update users', Object.values(users));
+io.on('connection', socket => {
+  let username = '';
+
+  // Set username
+  socket.on('set username', name => {
+    username = name;
+    users.push(username);
+    io.emit('update users', users);
     socket.emit('load messages', messages);
-    socket.broadcast.emit('chat message', { system: true, text: `${username} joined the chat` });
   });
 
-  socket.on('chat message', (msg) => {
-    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const messageObj = { id: Date.now(), user: users[socket.id], text: msg, time: timestamp };
-    messages.push(messageObj);
-    io.emit('chat message', messageObj);
+  // New message
+  socket.on('chat message', text => {
+    const msg = {
+      id: Date.now().toString(), // unique ID
+      user: username,
+      text,
+      time: new Date().toLocaleTimeString(),
+      reactions: {} // for live emoji reactions
+    };
+    messages.push(msg);
+    io.emit('chat message', msg);
   });
 
+  // Edit message
   socket.on('edit message', ({ id, newText }) => {
-    messages = messages.map(m => m.id === id ? { ...m, text: newText } : m);
-    io.emit('edit message', { id, newText });
-  });
-
-  socket.on('delete message', (id) => {
-    messages = messages.filter(m => m.id !== id);
-    io.emit('delete message', id);
-  });
-
-  socket.on('disconnect', () => {
-    if(users[socket.id]){
-      socket.broadcast.emit('chat message', { system: true, text: `${users[socket.id]} left the chat` });
-      delete users[socket.id];
-      io.emit('update users', Object.values(users));
+    const msg = messages.find(m => m.id === id);
+    if(msg && msg.user === username) { // only allow sender to edit
+      msg.text = newText;
+      io.emit('edit message', { id, newText });
     }
+  });
+
+  // Delete message
+  socket.on('delete message', id => {
+    const msg = messages.find(m => m.id === id);
+    if(msg && msg.user === username) { // only allow sender to delete
+      messages = messages.filter(m => m.id !== id);
+      io.emit('delete message', id);
+    }
+  });
+
+  // Live emoji reactions
+  socket.on('add reaction', ({ messageId, emoji }) => {
+    const msg = messages.find(m => m.id === messageId);
+    if(msg) {
+      msg.reactions[emoji] = (msg.reactions[emoji] || 0) + 1;
+      io.emit('update reactions', { messageId, reactions: msg.reactions });
+    }
+  });
+
+  // Disconnect
+  socket.on('disconnect', () => {
+    users = users.filter(u => u !== username);
+    io.emit('update users', users);
   });
 });
 
+// Start server
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+http.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});

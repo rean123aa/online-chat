@@ -54,7 +54,7 @@ function addMessage(msg){
         div.textContent = msg.text;
         div.style.background = '#444';
     } else {
-        div.innerHTML = `<strong style="color:${userColor}">${msg.user}</strong>: <span class="text">${msg.text}</span> <span>${msg.time}</span>`;
+      div.innerHTML = `<strong style="color:${getColor(msg.user)}">${msg.user}</strong>: <span class="text">${msg.text}</span> <span>${msg.time}</span>`;
         div.style.background = '#333';
         if(msg.user === username){
             const editBtn = document.createElement('button');
@@ -94,6 +94,17 @@ socket.on('update users', users => {
     users.forEach(u => { const li=document.createElement('li'); li.textContent=u; userList.appendChild(li); });
 });
 socket.on('load messages', msgs => { msgs.forEach(addMessage); });
+// Create a map to assign a color to each username
+let userColors = {};
+
+function getColor(user){
+    if(userColors[user]) return userColors[user]; // already has a color
+    const colors = ['#ff6b6b','#feca57','#48dbfb','#1dd1a1','#5f27cd','#ee5253','#ff9ff3','#54a0ff','#00d2d3','#c8d6e5'];
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    userColors[user] = color; // save the color for this user
+    return color;
+}
 </script>
+
 </body>
 </html>
