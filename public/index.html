@@ -27,7 +27,19 @@ body { margin:0; font-family:Arial,sans-serif; background:#2c2f33; color:#fff; d
 #send-btn { padding:14px 24px; border:none; border-radius:8px; margin-left:10px; background:#7289da; color:#fff; cursor:pointer; font-size:1.1em; }
 #scroll-btn { position:absolute; bottom:20px; right:20px; padding:10px 14px; border-radius:8px; border:none; background:#7289da; color:#fff; cursor:pointer; display:none; }
 #typing { position:absolute; bottom:80px; left:10px; font-size:1em; color:#ccc; }
-#theme-toggle { position:fixed; bottom:10px; left:10px; padding:8px 14px; cursor:pointer; border:none; border-radius:5px; background:#7289da; color:#fff; z-index:1000; }
+#theme-toggle, #mute-toggle {
+    position: fixed;
+    bottom: 10px;
+    padding: 8px 14px;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    background: #7289da;
+    color: #fff;
+    z-index: 1000;
+}
+#theme-toggle { left: 10px; }
+#mute-toggle { left: 120px; }
 .emoji-picker { display:flex; gap:5px; flex-wrap:wrap; margin-top:5px; }
 .emoji-picker button { font-size:1.5em; background:transparent; border:none; cursor:pointer; }
 </style>
@@ -49,6 +61,7 @@ body { margin:0; font-family:Arial,sans-serif; background:#2c2f33; color:#fff; d
         <button>👍</button><button>❤️</button><button>😂</button><button>😮</button><button>😢</button><button>👏</button>
     </div>
     <button id="theme-toggle">Toggle Theme</button>
+    <button id="mute-toggle">🔊</button>
 </div>
 
 <script>
@@ -64,12 +77,28 @@ const userList = document.getElementById('user-list');
 const scrollBtn = document.getElementById('scroll-btn');
 const typingDiv = document.getElementById('typing');
 const themeToggle = document.getElementById('theme-toggle');
+const muteBtn = document.getElementById('mute-toggle');
 const emojiPicker = document.getElementById('emoji-picker');
+
+let isMuted = false;
+muteBtn.addEventListener('click', () => {
+    isMuted = !isMuted;
+    muteBtn.textContent = isMuted ? '🔇' : '🔊';
+});
 
 let userColors={};
 function getColor(user){ if(userColors[user]) return userColors[user]; const colors=['#ff6b6b','#feca57','#48dbfb','#1dd1a1','#5f27cd','#ee5253','#ff9ff3','#54a0ff','#00d2d3','#c8d6e5']; const color=colors[Math.floor(Math.random()*colors.length)]; userColors[user]=color; return color; }
 
-function formatTime(date){ let h=date.getHours(); let m=date.getMinutes(); const ampm=h>=12?'PM':'AM'; h=h%12||12; m=m<10?'0'+m:m; return `${h}:${m} ${ampm}`; }
+function formatTimeEST(date){
+    const options = { hour: 'numeric', minute: 'numeric', hour12: true, timeZone: 'America/New_York' };
+    return date.toLocaleString('en-US', options);
+}
+
+function playSound(){
+    if(isMuted) return;
+    const audio = new Audio('https://www.soundjay.com/button/sounds/button-3.mp3');
+    audio.play();
+}
 
 function addMessage(msg){
     const div=document.createElement('div');
@@ -107,11 +136,9 @@ function addMessage(msg){
     div.appendChild(reactionDiv);
     messagesDiv.appendChild(div);
 
-    if(messagesDiv.scrollTop+messagesDiv.clientHeight<messagesDiv.scrollHeight-50) scrollBtn.style.display='block';
-    else { messagesDiv.scrollTop=messagesDiv.scrollHeight; scrollBtn.style.display='none'; playSound(); }
+    if(messagesDiv.scrollTop + messagesDiv.clientHeight < messagesDiv.scrollHeight - 50) scrollBtn.style.display='block';
+    else { messagesDiv.scrollTop = messagesDiv.scrollHeight; scrollBtn.style.display='none'; if(msg.user!==username) playSound(); }
 }
-
-function playSound(){ const audio=new Audio('https://www.soundjay.com/button/sounds/button-3.mp3'); audio.play(); }
 
 scrollBtn.addEventListener('click',()=>{ messagesDiv.scrollTop=messagesDiv.scrollHeight; scrollBtn.style.display='none'; });
 button.addEventListener('click',()=>{ const msg=input.value.trim(); if(!msg) return; socket.emit('chat message',msg); input.value=''; });

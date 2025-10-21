@@ -3,10 +3,14 @@ const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http);
 
-app.use(express.static('public')); // serves index.html and client files
+app.use(express.static('public'));
 
 let users = {};
 let messages = [];
+
+function getESTTime(){
+    return new Date().toLocaleString("en-US", { hour:'numeric', minute:'numeric', hour12:true, timeZone:"America/New_York" });
+}
 
 io.on('connection', socket => {
   socket.on('set username', name => {
@@ -17,7 +21,7 @@ io.on('connection', socket => {
   });
 
   socket.on('chat message', text => {
-    const msg = { id: Date.now(), user: socket.username, text, time: new Date().toLocaleTimeString(), reactions:{} };
+    const msg = { id: Date.now(), user: socket.username, text, time: getESTTime(), reactions:{} };
     messages.push(msg);
     io.emit('chat message', msg);
   });
