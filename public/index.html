@@ -6,24 +6,28 @@
 <title>Online Chat Box</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
-body { margin: 0; font-family: Arial, sans-serif; background: #2c2f33; color: #fff; display: flex; height: 100vh; }
-#users { width: 220px; background: #23272a; padding: 10px; overflow-y: auto; }
-#users h3 { margin-top: 0; text-align: center; }
-#chat-container { flex: 1; display: flex; flex-direction: column; }
-#messages { flex: 1; overflow-y: scroll; padding: 10px; display: flex; flex-direction: column; gap: 10px; position: relative; }
-.message { padding: 12px 18px; border-radius: 12px; max-width: 75%; display: inline-block; word-wrap: break-word; transition: background 0.2s; }
-.message:hover { background: #3a3d41; }
-.message span { font-size: 1.3em; color: #ddd; margin-left: 5px; }
-.message strong { font-size: 1.5em; }
-.message.right { background: #7289da; align-self: flex-end; }
-.message.left { background: #333; align-self: flex-start; }
-.message button { margin-left: 5px; font-size: 0.9em; background: transparent; border: none; color: #fff; cursor: pointer; }
-.reactions { margin-top: 5px; display: flex; gap: 5px; }
-.reaction-btn { font-size: 1em; background: transparent; border: none; cursor: pointer; color: #fff; }
-#input-container { display: flex; padding: 10px; background: #23272a; }
-#message-input { flex: 1; padding: 14px; border: none; border-radius: 8px; font-size: 1.2em; }
-#send-btn { padding: 14px 24px; border: none; border-radius: 8px; margin-left: 10px; background: #7289da; color: #fff; cursor: pointer; font-size: 1.1em; }
-#scroll-btn { position: absolute; bottom: 20px; right: 20px; padding: 10px 14px; border-radius: 8px; border: none; background: #7289da; color: #fff; cursor: pointer; display: none; }
+body { margin:0; font-family:Arial,sans-serif; background:#2c2f33; color:#fff; display:flex; height:100vh; }
+#users { width:220px; background:#23272a; padding:10px; overflow-y:auto; }
+#users h3 { margin-top:0; text-align:center; }
+#chat-container { flex:1; display:flex; flex-direction:column; position:relative; }
+#messages { flex:1; overflow-y:scroll; padding:10px; display:flex; flex-direction:column; gap:10px; }
+.message { padding:12px 18px; border-radius:12px; max-width:75%; word-wrap:break-word; transition:background 0.2s; }
+.message:hover { background:#3a3d41; }
+.message span { font-size:1.3em; color:#ddd; margin-left:5px; }
+.message strong { font-size:1.5em; }
+.message.right { background:#7289da; align-self:flex-end; }
+.message.left { background:#333; align-self:flex-start; }
+.message button { margin-left:5px; font-size:0.9em; background:transparent; border:none; color:#fff; cursor:pointer; }
+.reactions { margin-top:5px; display:flex; gap:5px; }
+.reaction-btn { font-size:1em; background:transparent; border:none; cursor:pointer; color:#fff; }
+#input-container { display:flex; padding:10px; background:#23272a; }
+#message-input { flex:1; padding:14px; border:none; border-radius:8px; font-size:1.2em; }
+#send-btn { padding:14px 24px; border:none; border-radius:8px; margin-left:10px; background:#7289da; color:#fff; cursor:pointer; font-size:1.1em; }
+#scroll-btn { position:absolute; bottom:20px; right:20px; padding:10px 14px; border-radius:8px; border:none; background:#7289da; color:#fff; cursor:pointer; display:none; }
+#typing { position:absolute; bottom:60px; left:10px; font-size:1em; color:#ccc; }
+#theme-toggle { position:absolute; top:10px; right:10px; padding:6px 12px; cursor:pointer; border:none; border-radius:5px; background:#7289da; color:#fff; }
+.emoji-picker { display:flex; gap:5px; flex-wrap:wrap; margin-top:5px; }
+.emoji-picker button { font-size:1.5em; background:transparent; border:none; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -33,16 +37,21 @@ body { margin: 0; font-family: Arial, sans-serif; background: #2c2f33; color: #f
 </div>
 <div id="chat-container">
     <div id="messages"></div>
+    <div id="typing"></div>
     <button id="scroll-btn">↓ New Messages</button>
     <div id="input-container">
         <input id="message-input" placeholder="Type your message..." autocomplete="off" />
         <button id="send-btn">Send</button>
     </div>
+    <div class="emoji-picker" id="emoji-picker">
+        <button>👍</button><button>❤️</button><button>😂</button><button>😮</button><button>😢</button><button>👏</button>
+    </div>
+    <button id="theme-toggle">Toggle Theme</button>
 </div>
 
 <script>
 const socket = io();
-let username = '';
+let username='';
 while(!username) username = prompt("Enter your username:");
 socket.emit('set username', username);
 
@@ -51,92 +60,67 @@ const input = document.getElementById('message-input');
 const button = document.getElementById('send-btn');
 const userList = document.getElementById('user-list');
 const scrollBtn = document.getElementById('scroll-btn');
+const typingDiv = document.getElementById('typing');
+const themeToggle = document.getElementById('theme-toggle');
+const emojiPicker = document.getElementById('emoji-picker');
 
-let userColors = {};
-function getColor(user){
-    if(userColors[user]) return userColors[user];
-    const colors = ['#ff6b6b','#feca57','#48dbfb','#1dd1a1','#5f27cd','#ee5253','#ff9ff3','#54a0ff','#00d2d3','#c8d6e5'];
-    const color = colors[Math.floor(Math.random() * colors.length)];
-    userColors[user] = color;
-    return color;
-}
+let userColors={};
+function getColor(user){ if(userColors[user]) return userColors[user]; const colors=['#ff6b6b','#feca57','#48dbfb','#1dd1a1','#5f27cd','#ee5253','#ff9ff3','#54a0ff','#00d2d3','#c8d6e5']; const color=colors[Math.floor(Math.random()*colors.length)]; userColors[user]=color; return color; }
+
+function formatTime(date){ let h=date.getHours(); let m=date.getMinutes(); const ampm=h>=12?'PM':'AM'; h=h%12||12; m=m<10?'0'+m:m; return `${h}:${m} ${ampm}`; }
 
 function addMessage(msg){
-    const div = document.createElement('div');
+    const div=document.createElement('div');
     div.classList.add('message');
-    div.dataset.id = msg.id || '';
-    div.innerHTML = `<strong style="color:${getColor(msg.user)}">${msg.user}</strong>: <span class="text">${msg.text}</span> <span>${msg.time}</span>`;
-    div.classList.add(msg.user === username ? 'right' : 'left');
+    div.dataset.id=msg.id||'';
+    div.innerHTML=`<strong style="color:${getColor(msg.user)}">${msg.user}</strong>: <span class="text">${msg.text}</span> <span>${msg.time}</span>`;
+    div.classList.add(msg.user===username?'right':'left');
 
-    if(msg.user === username){
-        const editBtn = document.createElement('button');
-        editBtn.textContent = '✏️';
-        editBtn.onclick = () => {
-            const newText = prompt("Edit your message:", msg.text);
-            if(newText) socket.emit('edit message', { id: msg.id, newText });
-        };
-        const delBtn = document.createElement('button');
-        delBtn.textContent = '🗑️';
-        delBtn.onclick = () => socket.emit('delete message', msg.id);
-        div.appendChild(editBtn);
-        div.appendChild(delBtn);
+    if(msg.user===username){
+        const editBtn=document.createElement('button');
+        editBtn.textContent='✏️';
+        editBtn.onclick=()=>{ const newText=prompt("Edit message:",msg.text); if(newText) socket.emit('edit message',{id:msg.id,newText}); };
+        const delBtn=document.createElement('button');
+        delBtn.textContent='🗑️';
+        delBtn.onclick=()=> socket.emit('delete message',msg.id);
+        div.appendChild(editBtn); div.appendChild(delBtn);
     }
 
-    const reactionDiv = document.createElement('div');
-    reactionDiv.classList.add('reactions');
-    const emojis = ['👍','❤️','😂','😮','😢','👏'];
-    emojis.forEach(emoji => {
-        const btn = document.createElement('button');
-        btn.textContent = `${emoji} ${msg.reactions && msg.reactions[emoji] ? msg.reactions[emoji] : 0}`;
-        btn.className = 'reaction-btn';
-        btn.onclick = () => socket.emit('add reaction', { messageId: msg.id, emoji });
+    const reactionDiv=document.createElement('div'); reactionDiv.classList.add('reactions');
+    const emojis=['👍','❤️','😂','😮','😢','👏'];
+    emojis.forEach(emoji=>{
+        const btn=document.createElement('button');
+        btn.textContent=`${emoji} ${msg.reactions && msg.reactions[emoji]?msg.reactions[emoji]:0}`;
+        btn.className='reaction-btn';
+        btn.onclick=()=> socket.emit('add reaction',{messageId:msg.id,emoji});
         reactionDiv.appendChild(btn);
     });
     div.appendChild(reactionDiv);
-
     messagesDiv.appendChild(div);
-    if (messagesDiv.scrollTop + messagesDiv.clientHeight < messagesDiv.scrollHeight - 50) {
-        scrollBtn.style.display = 'block';
-    } else {
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        scrollBtn.style.display = 'none';
-    }
+
+    if(messagesDiv.scrollTop+messagesDiv.clientHeight<messagesDiv.scrollHeight-50) scrollBtn.style.display='block';
+    else { messagesDiv.scrollTop=messagesDiv.scrollHeight; scrollBtn.style.display='none'; playSound(); }
 }
 
-scrollBtn.addEventListener('click', () => {
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    scrollBtn.style.display = 'none';
-});
+function playSound(){ const audio=new Audio('https://www.soundjay.com/button/sounds/button-3.mp3'); audio.play(); }
 
-button.addEventListener('click', () => {
-    const msg = input.value.trim();
-    if(msg){ socket.emit('chat message', msg); input.value = ''; }
-});
-input.addEventListener('keypress', e => { if(e.key==='Enter') button.click(); });
+scrollBtn.addEventListener('click',()=>{ messagesDiv.scrollTop=messagesDiv.scrollHeight; scrollBtn.style.display='none'; });
+
+button.addEventListener('click',()=>{ const msg=input.value.trim(); if(!msg) return; socket.emit('chat message',msg); input.value=''; });
+input.addEventListener('keypress',e=>{ if(e.key==='Enter') button.click(); input.dispatchEvent(new Event('input')); });
+input.addEventListener('input',()=>{ socket.emit('typing', input.value?true:false); });
+
+themeToggle.addEventListener('click',()=>{ if(document.body.style.background==='rgb(44, 47, 51)'){ document.body.style.background='#fff'; document.body.style.color='#000'; } else{ document.body.style.background='#2c2f33'; document.body.style.color='#fff'; } });
+
+emojiPicker.querySelectorAll('button').forEach(btn=>{ btn.addEventListener('click',()=>{ input.value+=btn.textContent.split(' ')[0]; input.focus(); }); });
 
 socket.on('chat message', addMessage);
-socket.on('edit message', ({id,newText}) => {
-    const div = document.querySelector(`.message[data-id="${id}"]`);
-    if(div) div.querySelector('.text').textContent = newText;
-});
-socket.on('delete message', id => {
-    const div = document.querySelector(`.message[data-id="${id}"]`);
-    if(div) div.remove();
-});
-socket.on('update users', users => {
-    userList.innerHTML = '';
-    users.forEach(u => { const li=document.createElement('li'); li.textContent=u; userList.appendChild(li); });
-});
-socket.on('load messages', msgs => { msgs.forEach(addMessage); });
-socket.on('update reactions', ({ messageId, reactions }) => {
-    const msgDiv = document.querySelector(`.message[data-id="${messageId}"]`);
-    if(!msgDiv) return;
-    const buttons = msgDiv.querySelectorAll('.reaction-btn');
-    buttons.forEach(btn => {
-        const emoji = btn.textContent[0];
-        btn.textContent = `${emoji} ${reactions[emoji] || 0}`;
-    });
-});
+socket.on('edit message',({id,newText})=>{ const div=document.querySelector(`.message[data-id="${id}"]`); if(div) div.querySelector('.text').textContent=newText; });
+socket.on('delete message',id=>{ const div=document.querySelector(`.message[data-id="${id}"]`); if(div) div.remove(); });
+socket.on('update users', users=>{ userList.innerHTML=''; users.forEach(u=>{ const li=document.createElement('li'); li.textContent=u; userList.appendChild(li); }); });
+socket.on('load messages',msgs=>{ msgs.forEach(addMessage); });
+socket.on('update reactions',({messageId,reactions})=>{ const div=document.querySelector(`.message[data-id="${messageId}"]`); if(!div) return; div.querySelectorAll('.reaction-btn').forEach(btn=>{ const emoji=btn.textContent[0]; btn.textContent=`${emoji} ${reactions[emoji]||0}`; }); });
+socket.on('typing',usernames=>{ typingDiv.textContent=usernames?`${usernames} is typing...`:''; });
 </script>
 </body>
 </html>
