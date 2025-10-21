@@ -22,11 +22,11 @@ body { margin:0; font-family:Arial,sans-serif; background:#2c2f33; color:#fff; d
 .message button { margin-left:5px; font-size:0.9em; background:transparent; border:none; color:#fff; cursor:pointer; }
 .reactions { margin-top:5px; display:flex; gap:5px; }
 .reaction-btn { font-size:1em; background:transparent; border:none; cursor:pointer; color:#fff; }
-#input-container { display:flex; padding:10px; background:#23272a; }
+#input-container { display:flex; padding:10px; background:#23272a; flex-direction:column; }
 #message-input { flex:1; padding:14px; border:none; border-radius:8px; font-size:1.3em; }
-#send-btn { padding:14px 24px; border:none; border-radius:8px; margin-left:10px; background:#7289da; color:#fff; cursor:pointer; font-size:1.1em; }
+#send-btn { padding:14px 24px; border:none; border-radius:8px; margin-left:0; margin-top:5px; background:#7289da; color:#fff; cursor:pointer; font-size:1.1em; }
 #scroll-btn { position:absolute; bottom:20px; right:20px; padding:10px 14px; border-radius:8px; border:none; background:#7289da; color:#fff; cursor:pointer; display:none; }
-#typing { position:absolute; bottom:80px; left:10px; font-size:1em; color:#ccc; }
+#typing { font-size:1.3em; font-weight:bold; color:#ff6b6b; text-shadow:0 0 5px #fff; margin-bottom:5px; }
 #theme-toggle, #mute-toggle {
     position: fixed;
     bottom: 10px;
@@ -51,9 +51,8 @@ body { margin:0; font-family:Arial,sans-serif; background:#2c2f33; color:#fff; d
 </div>
 <div id="chat-container">
     <div id="messages"></div>
-    <div id="typing"></div>
-    <button id="scroll-btn">↓ New Messages</button>
     <div id="input-container">
+        <div id="typing"></div>
         <input id="message-input" placeholder="Type your message..." autocomplete="off" />
         <button id="send-btn">Send</button>
     </div>
@@ -62,6 +61,7 @@ body { margin:0; font-family:Arial,sans-serif; background:#2c2f33; color:#fff; d
     </div>
     <button id="theme-toggle">Toggle Theme</button>
     <button id="mute-toggle">🔊</button>
+    <button id="scroll-btn">↓ New Messages</button>
 </div>
 
 <script>
@@ -80,25 +80,18 @@ const themeToggle = document.getElementById('theme-toggle');
 const muteBtn = document.getElementById('mute-toggle');
 const emojiPicker = document.getElementById('emoji-picker');
 
-let isMuted = false;
-muteBtn.addEventListener('click', () => {
-    isMuted = !isMuted;
-    muteBtn.textContent = isMuted ? '🔇' : '🔊';
-});
+let isMuted=false;
+muteBtn.addEventListener('click',()=>{ isMuted=!isMuted; muteBtn.textContent=isMuted?'🔇':'🔊'; });
 
 let userColors={};
 function getColor(user){ if(userColors[user]) return userColors[user]; const colors=['#ff6b6b','#feca57','#48dbfb','#1dd1a1','#5f27cd','#ee5253','#ff9ff3','#54a0ff','#00d2d3','#c8d6e5']; const color=colors[Math.floor(Math.random()*colors.length)]; userColors[user]=color; return color; }
 
 function formatTimeEST(date){
-    const options = { hour: 'numeric', minute: 'numeric', hour12: true, timeZone: 'America/New_York' };
-    return date.toLocaleString('en-US', options);
+    const options={hour:'numeric',minute:'numeric',hour12:true,timeZone:"America/New_York"};
+    return date.toLocaleString('en-US',options);
 }
 
-function playSound(){
-    if(isMuted) return;
-    const audio = new Audio('https://www.soundjay.com/button/sounds/button-3.mp3');
-    audio.play();
-}
+function playSound(){ if(isMuted) return; const audio=new Audio('https://www.soundjay.com/button/sounds/button-3.mp3'); audio.play(); }
 
 function addMessage(msg){
     const div=document.createElement('div');
@@ -111,7 +104,6 @@ function addMessage(msg){
     if(lastMsg && lastMsg.dataset.user === msg.user) div.style.marginTop='15px';
     else div.style.marginTop='5px';
     div.dataset.user = msg.user;
-
     div.onclick = ()=>{ div.classList.toggle('highlighted'); }
 
     if(msg.user===username){
@@ -137,7 +129,7 @@ function addMessage(msg){
     messagesDiv.appendChild(div);
 
     if(messagesDiv.scrollTop + messagesDiv.clientHeight < messagesDiv.scrollHeight - 50) scrollBtn.style.display='block';
-    else { messagesDiv.scrollTop = messagesDiv.scrollHeight; scrollBtn.style.display='none'; if(msg.user!==username) playSound(); }
+    else { messagesDiv.scrollTop=messagesDiv.scrollHeight; scrollBtn.style.display='none'; if(msg.user!==username) playSound(); }
 }
 
 scrollBtn.addEventListener('click',()=>{ messagesDiv.scrollTop=messagesDiv.scrollHeight; scrollBtn.style.display='none'; });
@@ -167,7 +159,7 @@ socket.on('delete message',id=>{ const div=document.querySelector(`.message[data
 socket.on('update users', users=>{ userList.innerHTML=''; users.forEach(u=>{ const li=document.createElement('li'); li.textContent=u; userList.appendChild(li); }); });
 socket.on('load messages',msgs=>{ msgs.forEach(addMessage); });
 socket.on('update reactions',({messageId,reactions})=>{ const div=document.querySelector(`.message[data-id="${messageId}"]`); if(!div) return; div.querySelectorAll('.reaction-btn').forEach(btn=>{ const emoji=btn.textContent[0]; btn.textContent=`${emoji} ${reactions[emoji]||0}`; }); });
-socket.on('typing',usernames=>{ typingDiv.textContent=usernames?`${usernames} is typing...`:''; });
+socket.on('typing',usernames=>{ typingDiv.textContent=usernames?`${usernames} is typing...` : ''; });
 </script>
 </body>
 </html>
