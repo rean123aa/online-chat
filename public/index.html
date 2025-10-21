@@ -8,24 +8,26 @@
 <style>
 body { margin:0; font-family:Arial,sans-serif; background:#2c2f33; color:#fff; display:flex; height:100vh; }
 #users { width:220px; background:#23272a; padding:10px; overflow-y:auto; }
-#users h3 { margin-top:0; text-align:center; }
+#users h3 { margin-top:0; text-align:center; font-size:1.2em; color:#fff; }
+#user-list li { font-size:1.3em; margin-bottom:5px; }
 #chat-container { flex:1; display:flex; flex-direction:column; position:relative; }
 #messages { flex:1; overflow-y:scroll; padding:10px; display:flex; flex-direction:column; gap:10px; }
-.message { padding:12px 18px; border-radius:12px; max-width:75%; word-wrap:break-word; transition:background 0.2s; }
+.message { padding:14px 20px; border-radius:12px; max-width:75%; word-wrap:break-word; transition:background 0.2s; margin-top:5px; position:relative; cursor:pointer; }
 .message:hover { background:#3a3d41; }
-.message span { font-size:1.3em; color:#ddd; margin-left:5px; }
-.message strong { font-size:1.5em; }
+.message .username { font-size:1em; font-weight:bold; margin-right:5px; }
+.message .text { font-size:1.5em; }
 .message.right { background:#7289da; align-self:flex-end; }
 .message.left { background:#333; align-self:flex-start; }
+.message.highlighted { border:2px solid #ff6b6b; }
 .message button { margin-left:5px; font-size:0.9em; background:transparent; border:none; color:#fff; cursor:pointer; }
 .reactions { margin-top:5px; display:flex; gap:5px; }
 .reaction-btn { font-size:1em; background:transparent; border:none; cursor:pointer; color:#fff; }
 #input-container { display:flex; padding:10px; background:#23272a; }
-#message-input { flex:1; padding:14px; border:none; border-radius:8px; font-size:1.2em; }
+#message-input { flex:1; padding:14px; border:none; border-radius:8px; font-size:1.3em; }
 #send-btn { padding:14px 24px; border:none; border-radius:8px; margin-left:10px; background:#7289da; color:#fff; cursor:pointer; font-size:1.1em; }
 #scroll-btn { position:absolute; bottom:20px; right:20px; padding:10px 14px; border-radius:8px; border:none; background:#7289da; color:#fff; cursor:pointer; display:none; }
-#typing { position:absolute; bottom:60px; left:10px; font-size:1em; color:#ccc; }
-#theme-toggle { position:absolute; top:10px; right:10px; padding:6px 12px; cursor:pointer; border:none; border-radius:5px; background:#7289da; color:#fff; }
+#typing { position:absolute; bottom:80px; left:10px; font-size:1em; color:#ccc; }
+#theme-toggle { position:fixed; bottom:10px; left:10px; padding:8px 14px; cursor:pointer; border:none; border-radius:5px; background:#7289da; color:#fff; z-index:1000; }
 .emoji-picker { display:flex; gap:5px; flex-wrap:wrap; margin-top:5px; }
 .emoji-picker button { font-size:1.5em; background:transparent; border:none; cursor:pointer; }
 </style>
@@ -73,8 +75,15 @@ function addMessage(msg){
     const div=document.createElement('div');
     div.classList.add('message');
     div.dataset.id=msg.id||'';
-    div.innerHTML=`<strong style="color:${getColor(msg.user)}">${msg.user}</strong>: <span class="text">${msg.text}</span> <span>${msg.time}</span>`;
+    div.innerHTML=`<span class="username" style="color:${getColor(msg.user)}">${msg.user}</span>: <span class="text">${msg.text}</span> <span>${msg.time}</span>`;
     div.classList.add(msg.user===username?'right':'left');
+
+    const lastMsg = messagesDiv.lastElementChild;
+    if(lastMsg && lastMsg.dataset.user === msg.user) div.style.marginTop='15px';
+    else div.style.marginTop='5px';
+    div.dataset.user = msg.user;
+
+    div.onclick = ()=>{ div.classList.toggle('highlighted'); }
 
     if(msg.user===username){
         const editBtn=document.createElement('button');
@@ -105,12 +114,23 @@ function addMessage(msg){
 function playSound(){ const audio=new Audio('https://www.soundjay.com/button/sounds/button-3.mp3'); audio.play(); }
 
 scrollBtn.addEventListener('click',()=>{ messagesDiv.scrollTop=messagesDiv.scrollHeight; scrollBtn.style.display='none'; });
-
 button.addEventListener('click',()=>{ const msg=input.value.trim(); if(!msg) return; socket.emit('chat message',msg); input.value=''; });
 input.addEventListener('keypress',e=>{ if(e.key==='Enter') button.click(); input.dispatchEvent(new Event('input')); });
 input.addEventListener('input',()=>{ socket.emit('typing', input.value?true:false); });
 
-themeToggle.addEventListener('click',()=>{ if(document.body.style.background==='rgb(44, 47, 51)'){ document.body.style.background='#fff'; document.body.style.color='#000'; } else{ document.body.style.background='#2c2f33'; document.body.style.color='#fff'; } });
+themeToggle.addEventListener('click',()=>{
+    if(document.body.style.background==='rgb(44, 47, 51)'){ 
+        document.body.style.background='#ffc0cb'; 
+        document.body.style.color='#000'; 
+        document.querySelector('#users').style.background='#ff7f9e'; 
+        document.querySelectorAll('.username').forEach(u=>u.style.color='#000'); 
+    } else { 
+        document.body.style.background='#2c2f33'; 
+        document.body.style.color='#fff'; 
+        document.querySelector('#users').style.background='#23272a'; 
+        document.querySelectorAll('.username').forEach(u=>u.style.color=''); 
+    }
+});
 
 emojiPicker.querySelectorAll('button').forEach(btn=>{ btn.addEventListener('click',()=>{ input.value+=btn.textContent.split(' ')[0]; input.focus(); }); });
 

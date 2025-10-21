@@ -3,69 +3,52 @@ const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http);
 
-const PORT = process.env.PORT || 3000;
+app.use(express.static('public')); // serves index.html and client files
 
-app.use(express.static('public'));
-
-// Messages and users storage (in-memory)
+let users = {};
 let messages = [];
-let users = [];
 
-io.on('connection', (socket) => {
-    console.log('A user connected:', socket.id);
+io.on('connection', socket => {
+  socket.on('set username', name => {
+    socket.username = name;
+    users[socket.id] = name;
+    io.emit('update users', Object.values(users));
+    socket.emit('load messages', messages);
+  });
 
-    // Set username
-    socket.on('set username', username => {
-        socket.username = username;
-        users.push(username);
-        io.emit('update users', users);
-        socket.emit('load messages', messages);
-    });
+  socket.on('chat message', text => {
+    const msg = { id: Date.now(), user: socket.username, text, time: new Date().toLocaleTimeString(), reactions:{} };
+    messages.push(msg);
+    io.emit('chat message', msg);
+  });
 
-    // Chat message
-    socket.on('chat message', text => {
-        const msg = {
-            id: Date.now().toString(),
-            user: socket.username,
-            text,
-            time: new Date().toLocaleTimeString(),
-            reactions: {}
-        };
-        messages.push(msg);
-        io.emit('chat message', msg);
-    });
+  socket.on('typing', isTyping => {
+    io.emit('typing', isTyping ? socket.username : '');
+  });
 
-    // Edit message
-    socket.on('edit message', ({id, newText}) => {
-        const msg = messages.find(m => m.id === id);
-        if(msg && msg.user === socket.username){
-            msg.text = newText;
-            io.emit('edit message', {id, newText});
-        }
-    });
+  socket.on('edit message', ({id,newText}) => {
+    const msg = messages.find(m => m.id === id);
+    if(msg){ msg.text=newText; io.emit('edit message',{id,newText}); }
+  });
 
-    // Delete message
-    socket.on('delete message', id => {
-        const msgIndex = messages.findIndex(m => m.id === id);
-        if(msgIndex !== -1 && messages[msgIndex].user === socket.username){
-            messages.splice(msgIndex,1);
-            io.emit('delete message', id);
-        }
-    });
+  socket.on('delete message', id => {
+    messages = messages.filter(m => m.id !== id);
+    io.emit('delete message', id);
+  });
 
-    // Reactions
-    socket.on('add reaction', ({ messageId, emoji }) => {
-        const msg = messages.find(m => m.id === messageId);
-        if(!msg.reactions[emoji]) msg.reactions[emoji] = 0;
-        msg.reactions[emoji]++;
-        io.emit('update reactions', { messageId, reactions: msg.reactions });
-    });
+  socket.on('add reaction', ({messageId,emoji}) => {
+    const msg = messages.find(m => m.id===messageId);
+    if(msg){
+      msg.reactions[emoji] = (msg.reactions[emoji]||0)+1;
+      io.emit('update reactions',{messageId,reactions:msg.reactions});
+    }
+  });
 
-    socket.on('disconnect', () => {
-        users = users.filter(u => u !== socket.username);
-        io.emit('update users', users);
-        console.log('A user disconnected:', socket.id);
-    });
+  socket.on('disconnect', ()=>{
+    delete users[socket.id];
+    io.emit('update users', Object.values(users));
+  });
 });
 
-http.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const PORT = process.env.PORT || 3000;
+http.listen(PORT, ()=>console.log(`Server running on port ${PORT}`));
