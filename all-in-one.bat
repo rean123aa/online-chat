@@ -68,6 +68,16 @@ if /i "%choice%"=="html" (
     goto ask
 )
 
+REM ====== Git auto-setup if not already a repo ======
+if not exist "%folder%.git" (
+    echo [%time%] Git repository not found. Initializing...
+    git init
+    git remote add origin https://github.com/rean123aa/online-chat.git
+    git add .
+    git commit -m "Initial commit"
+    echo [%time%] Git initialized and initial commit done.
+)
+
 REM Generate initial hashes in variables
 if %checkHtml%==1 for /f "tokens=1,*" %%a in ('certutil -hashfile "%htmlFile%" SHA256 ^| findstr /v /c:"hash" /c:"CertUtil"') do set "hhash=%%a%%b"
 if %checkServer%==1 for /f "tokens=1,*" %%a in ('certutil -hashfile "%jsFile%" SHA256 ^| findstr /v /c:"hash" /c:"CertUtil"') do set "shash=%%a%%b"
@@ -99,7 +109,7 @@ if %change%==0 (
     goto monitor
 )
 
-echo [%time%] Changes! Deploying...
+echo [%time%] Changes detected! Deploying...
 
 REM Git deployment
 git add .
@@ -108,17 +118,19 @@ git pull origin main --rebase --quiet
 git push origin main --quiet
 
 if %errorlevel% neq 0 (
-    echo [%time%] Push failed!
+    echo [%time%] Push failed! Resolve conflicts manually.
     pause
     exit /b
 )
 
-echo [%time%] Deployed! Render: https://online-chat-1-dd3k.onrender.com
+REM Open Render link automatically in default browser
+echo [%time%] Deployed! Opening Render link...
+start "" "https://online-chat-1-dd3k.onrender.com"
 
 REM Beep notification
 powershell -c "[console]::beep(800,200); Start-Sleep -Milliseconds 100; [console]::beep(1000,200)"
 
 echo.
-echo [%time%] Monitoring...
+echo [%time%] Monitoring for more changes...
 timeout /t 1 >nul
 goto monitor
