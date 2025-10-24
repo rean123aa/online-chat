@@ -5,11 +5,11 @@ REM ===========================
 REM ASCII Art + Title
 REM ===========================
 echo.
-echo     ****     ****          Hello Ethan
+echo     ****     ****          
 echo   ******** ********
-echo  *******************
-echo   *****************
-echo    ***************
+echo  *******************     i wanna slit ur throat ren ren :) 
+echo   *****************         fucking slut and whore 
+echo    ***************                  slave :3
 echo      ***********
 echo        *******
 echo          ***
