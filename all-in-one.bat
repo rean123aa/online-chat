@@ -25,6 +25,9 @@ REM ==========================================
 REM Project folder
 set "folder=%~dp0"
 
+REM Remove any old temporary files
+del /q "%folder%*.tmp" >nul 2>&1
+
 REM Paths to files
 set "htmlFile=%folder%public\index.html"
 set "jsFile=%folder%server.js"
@@ -122,6 +125,9 @@ echo [%time%] Render link: https://online-chat-1-dd3k.onrender.com
 
 REM Notification beep
 powershell -c "[console]::beep(800,300); Start-Sleep -Milliseconds 100; [console]::beep(1000,300)"
+
+REM Clean temporary files after deploy
+del /q "%folder%*.tmp" >nul 2>&1
 
 echo.
 echo [%time%] Monitoring for more changes...
