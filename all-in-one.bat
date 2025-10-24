@@ -1,5 +1,5 @@
 @echo off
-title Opening Chat App – Auto Deploy Monitor
+title Chat App Monitor
 
 REM ===========================
 REM ASCII Art + Title
@@ -25,9 +25,6 @@ REM ==========================================
 REM Project folder
 set "folder=%~dp0"
 
-REM Remove any old temporary files
-del /q "%folder%*.tmp" >nul 2>&1
-
 REM Paths to files
 set "htmlFile=%folder%public\index.html"
 set "jsFile=%folder%server.js"
@@ -44,19 +41,17 @@ if not exist "%jsFile%" (
     exit /b
 )
 
-REM Open files in Cursor in hidden windows (suppress output)
+REM Open files in Cursor minimized
 start "" /min "%cursorPath%" "%htmlFile%" >nul 2>&1
 start "" /min "%cursorPath%" "%jsFile%" >nul 2>&1
 
 echo.
-echo ==============================
-echo   Both files are open in Cursor.
-echo ==============================
+echo === Files opened in Cursor ===
 echo.
 
 REM Ask which files to monitor
 :ask
-echo Did you modify only HTML, only server.js, or both? (type html / server / both)
+echo Did you modify only HTML, only server.js, or both? (html/server/both)
 set /p choice=
 
 if /i "%choice%"=="html" (
@@ -69,67 +64,61 @@ if /i "%choice%"=="html" (
     set "checkHtml=1"
     set "checkServer=1"
 ) else (
-    echo Invalid choice. Please type html, server, or both.
+    echo Invalid choice. Type html, server, or both.
     goto ask
 )
 
-REM Generate initial hashes
-if %checkHtml%==1 certutil -hashfile "%htmlFile%" SHA256 >"%folder%htmlhash.tmp"
-if %checkServer%==1 certutil -hashfile "%jsFile%" SHA256 >"%folder%jshash.tmp"
+REM Generate initial hashes in variables
+if %checkHtml%==1 for /f "tokens=1,*" %%a in ('certutil -hashfile "%htmlFile%" SHA256 ^| findstr /v /c:"hash" /c:"CertUtil"') do set "hhash=%%a%%b"
+if %checkServer%==1 for /f "tokens=1,*" %%a in ('certutil -hashfile "%jsFile%" SHA256 ^| findstr /v /c:"hash" /c:"CertUtil"') do set "shash=%%a%%b"
 
-echo Monitoring selected files every 1 second...
+echo Monitoring for changes every 1 second...
 echo.
 
 :monitor
-set "changed=0"
+set "change=0"
 
 if %checkHtml%==1 (
-    certutil -hashfile "%htmlFile%" SHA256 >"%folder%htmlhash_new.tmp"
-    fc /b "%folder%htmlhash.tmp" "%folder%htmlhash_new.tmp" >nul
-    if %errorlevel% neq 0 (
-        set "changed=1"
-        copy /y "%folder%htmlhash_new.tmp" "%folder%htmlhash.tmp" >nul
+    for /f "tokens=1,*" %%a in ('certutil -hashfile "%htmlFile%" SHA256 ^| findstr /v /c:"hash" /c:"CertUtil"') do set "newh=%%a%%b"
+    if not "%hhash%"=="%newh%" (
+        set "change=1"
+        set "hhash=%newh%"
     )
 )
 
 if %checkServer%==1 (
-    certutil -hashfile "%jsFile%" SHA256 >"%folder%jshash_new.tmp"
-    fc /b "%folder%jshash.tmp" "%folder%jshash_new.tmp" >nul
-    if %errorlevel% neq 0 (
-        set "changed=1"
-        copy /y "%folder%jshash_new.tmp" "%folder%jshash.tmp" >nul
+    for /f "tokens=1,*" %%a in ('certutil -hashfile "%jsFile%" SHA256 ^| findstr /v /c:"hash" /c:"CertUtil"') do set "news=%%a%%b"
+    if not "%shash%"=="%news%" (
+        set "change=1"
+        set "shash=%news%"
     )
 )
 
-if %changed%==0 (
+if %change%==0 (
     timeout /t 1 >nul
     goto monitor
 )
 
-echo [%time%] Changes detected! Deploying...
+echo [%time%] Changes! Deploying...
 
 REM Git deployment
 git add .
-git commit -m "Auto-update chat files" >nul 2>&1
+git commit -m "Auto-update" >nul 2>&1
 git pull origin main --rebase --quiet
 git push origin main --quiet
 
 if %errorlevel% neq 0 (
-    echo [%time%] Push failed! Resolve conflicts manually.
+    echo [%time%] Push failed!
     pause
     exit /b
 )
 
-echo [%time%] Deployment complete!
-echo [%time%] Render link: https://online-chat-1-dd3k.onrender.com
+echo [%time%] Deployed! Render: https://online-chat-1-dd3k.onrender.com
 
-REM Notification beep
-powershell -c "[console]::beep(800,300); Start-Sleep -Milliseconds 100; [console]::beep(1000,300)"
-
-REM Clean temporary files after deploy
-del /q "%folder%*.tmp" >nul 2>&1
+REM Beep notification
+powershell -c "[console]::beep(800,200); Start-Sleep -Milliseconds 100; [console]::beep(1000,200)"
 
 echo.
-echo [%time%] Monitoring for more changes...
+echo [%time%] Monitoring...
 timeout /t 1 >nul
 goto monitor
