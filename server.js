@@ -4,77 +4,51 @@ const { Server } = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
-const PORT = process.env.PORT || 3000;
 
 app.use(express.static('public'));
 
-let users = {};
 let messages = [];
+let users = [];
 
-// Helper: get EST time string
-function getESTTime() {
-    return new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour12:true, hour:'2-digit', minute:'2-digit' });
-}
+io.on('connection', socket => {
+    let userName = '';
 
-io.on('connection', (socket) => {
-    let currentUser = '';
-
-    // User sets username
-    socket.on('set username', (name) => {
-        currentUser = name;
-        users[socket.id] = name;
-        io.emit('update users', Object.values(users));
-        io.emit('system message', `⭐ ${name} joined the chat`);
+    socket.on('set username', name => {
+        userName = name;
+        users.push(name);
+        io.emit('update users', users);
         socket.emit('load messages', messages);
+        messages.push({ system: true, text: `${name} joined the chat.`, time: new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour12: true }) });
+        io.emit('chat message', messages[messages.length-1]);
     });
 
-    // Chat messages
-    socket.on('chat message', (text) => {
-        const msg = {
-            id: Date.now() + Math.random().toString(36).substring(2,7),
-            user: currentUser,
-            text,
-            time: getESTTime()
-        };
-        messages.push(msg);
-        io.emit('chat message', msg);
+    socket.on('chat message', msg => {
+        const messageObj = { user: userName, text: msg, id: Date.now(), time: new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour12: true }) };
+        messages.push(messageObj);
+        io.emit('chat message', messageObj);
     });
 
-    // Typing indicator
-    socket.on('typing', (isTyping) => {
-        if(isTyping) {
-            io.emit('typing', currentUser);
-        } else {
-            io.emit('typing', '');
-        }
+    socket.on('edit message', ({id,newText})=>{
+        const msg = messages.find(m=>m.id===id);
+        if(msg && msg.user===userName){ msg.text=newText; io.emit('edit message', {id,newText}); }
     });
 
-    // Disconnect
+    socket.on('delete message', id=>{
+        messages = messages.filter(m=>m.id!==id);
+        io.emit('delete message', id);
+    });
+
+    socket.on('typing', () => {
+        socket.broadcast.emit('typing', userName);
+    });
+
     socket.on('disconnect', () => {
-        if(currentUser) {
-            io.emit('system message', `👋 ${currentUser} left the chat`);
-            delete users[socket.id];
-            io.emit('update users', Object.values(users));
-        }
-    });
-
-    // Edit message
-    socket.on('edit message', ({id, newText}) => {
-        const msg = messages.find(m => m.id === id);
-        if(msg && msg.user === currentUser) {
-            msg.text = newText;
-            io.emit('edit message', {id, newText});
-        }
-    });
-
-    // Delete message
-    socket.on('delete message', (id) => {
-        const index = messages.findIndex(m => m.id === id);
-        if(index !== -1 && messages[index].user === currentUser) {
-            messages.splice(index, 1);
-            io.emit('delete message', id);
-        }
+        users = users.filter(u=>u!==userName);
+        io.emit('update users', users);
+        messages.push({ system: true, text: `${userName} left the chat.`, time: new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour12: true }) });
+        io.emit('chat message', messages[messages.length-1]);
     });
 });
 
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, ()=>console.log(`Server running on port ${PORT}`));
