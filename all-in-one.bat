@@ -44,9 +44,9 @@ if not exist "%jsFile%" (
     exit /b
 )
 
-REM Open files in Cursor
-start "" "%cursorPath%" "%htmlFile%" >nul 2>&1
-start "" "%cursorPath%" "%jsFile%" >nul 2>&1
+REM Open files in Cursor in hidden windows (suppress output)
+start "" /min "%cursorPath%" "%htmlFile%" >nul 2>&1
+start "" /min "%cursorPath%" "%jsFile%" >nul 2>&1
 
 echo.
 echo ==============================
@@ -77,7 +77,7 @@ REM Generate initial hashes
 if %checkHtml%==1 certutil -hashfile "%htmlFile%" SHA256 >"%folder%htmlhash.tmp"
 if %checkServer%==1 certutil -hashfile "%jsFile%" SHA256 >"%folder%jshash.tmp"
 
-echo Monitoring selected files every 5 seconds...
+echo Monitoring selected files every 1 second...
 echo.
 
 :monitor
@@ -102,7 +102,7 @@ if %checkServer%==1 (
 )
 
 if %changed%==0 (
-    timeout /t 5 >nul
+    timeout /t 1 >nul
     goto monitor
 )
 
@@ -131,5 +131,5 @@ del /q "%folder%*.tmp" >nul 2>&1
 
 echo.
 echo [%time%] Monitoring for more changes...
-timeout /t 5 >nul
+timeout /t 1 >nul
 goto monitor
