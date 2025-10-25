@@ -6,195 +6,131 @@
 <title>Online Chat Box</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
-body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background: #2c2f33;
-    color: #fff;
-    display: flex;
-    height: 100vh;
-}
-
-#users {
-    width: 200px;
-    background: #23272a;
-    padding: 10px;
-    overflow-y: auto;
-}
-
-#users h3 {
-    margin-top: 0;
-    text-align: center;
-}
-
-#user-list {
-    font-size: 1.2em;
-}
-
-#chat-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-}
-
-#messages {
-    flex: 1;
-    overflow-y: scroll;
-    padding: 10px;
-}
-
-.message {
-    padding: 10px 15px;
-    margin: 5px 0;
-    border-radius: 10px;
-    max-width: 60%;
-    position: relative;
-}
-
-.message .username {
-    font-size: 0.8em;
-    color: #aaa;
-}
-
-.message.left {
-    background: #444;
-    align-self: flex-start;
-}
-
-.message.right {
-    background: #7289da;
-    align-self: flex-end;
-    color: #fff;
-}
-
-#input-container {
-    display: flex;
-    padding: 10px;
-    background: #23272a;
-    align-items: center;
-}
-
-#message-input {
-    flex: 1;
-    padding: 10px;
-    border: none;
-    border-radius: 5px;
-}
-
-#send-btn {
-    padding: 10px 20px;
-    border: none;
-    border-radius: 5px;
-    margin-left: 10px;
-    background: #1abc9c;
-    color: #fff;
-    cursor: pointer;
-}
-
-#status {
-    font-size: 0.9em;
-    color: #ff0;
-    margin-left: 10px;
-}
+body { margin: 0; font-family: Arial, sans-serif; background: #2c2f33; color: #fff; display: flex; height: 100vh; }
+#users { width: 200px; background: #23272a; padding: 10px; overflow-y: auto; }
+#users h3 { margin-top: 0; text-align: center; }
+#chat-container { flex: 1; display: flex; flex-direction: column; }
+#messages { flex: 1; overflow-y: scroll; padding: 10px; }
+.message { padding: 10px 15px; margin-bottom: 8px; border-radius: 8px; max-width: 80%; position: relative; }
+.message span { font-size: 0.85em; color: #aaa; margin-left: 5px; }
+.message button { margin-left: 5px; font-size: 0.7em; background: transparent; border: none; color: #fff; cursor: pointer; }
+#input-container { display: flex; padding: 10px; background: #23272a; }
+#message-input { flex: 1; padding: 10px; border: none; border-radius: 5px; }
+#send-btn { padding: 10px 20px; border: none; border-radius: 5px; margin-left: 10px; background: #7289da; color: #fff; cursor: pointer; }
+#username-container { display: flex; justify-content: center; align-items: center; background: #23272a; padding: 10px; }
+#username-input { padding: 8px; border-radius: 5px; border: none; margin-right: 10px; }
+#set-username { padding: 8px 15px; border-radius: 5px; border: none; background: #7289da; color: #fff; cursor: pointer; }
+.hidden { display: none; }
 </style>
 </head>
 <body>
-
 <div id="users">
     <h3>Online Users</h3>
     <ul id="user-list"></ul>
 </div>
 
 <div id="chat-container">
-    <div id="messages"></div>
-    <div id="input-container">
+    <!-- Username input section -->
+    <div id="username-container">
+        <input id="username-input" placeholder="Enter your username..." autocomplete="off" />
+        <button id="set-username">Join Chat</button>
+    </div>
+
+    <!-- Chat messages -->
+    <div id="messages" class="hidden"></div>
+
+    <!-- Message input -->
+    <div id="input-container" class="hidden">
         <input id="message-input" placeholder="Type your message..." autocomplete="off" />
         <button id="send-btn">Send</button>
-        <span id="status"></span>
     </div>
 </div>
 
 <script>
 const socket = io();
 let username = '';
-while(!username) username = prompt("Enter your username:");
-socket.emit('set username', username);
 
 const messagesDiv = document.getElementById('messages');
 const input = document.getElementById('message-input');
 const button = document.getElementById('send-btn');
 const userList = document.getElementById('user-list');
-const status = document.getElementById('status');
 
-let typingTimeout;
-
-input.addEventListener('input', () => {
-    socket.emit('typing', true);
-    clearTimeout(typingTimeout);
-    typingTimeout = setTimeout(() => {
-        socket.emit('typing', false);
-    }, 1000);
-});
+const usernameContainer = document.getElementById('username-container');
+const usernameInput = document.getElementById('username-input');
+const setUsernameBtn = document.getElementById('set-username');
 
 const colors = ['#ff6b6b','#feca57','#48dbfb','#1dd1a1','#5f27cd','#ee5253','#ff9ff3','#54a0ff','#00d2d3','#c8d6e5'];
-const userColor = colors[Math.floor(Math.random() * colors.length)];
-let userColors = {};
+let userColor = '';
+
+function addMessage(msg){
+    const div = document.createElement('div');
+    div.classList.add('message');
+    div.dataset.id = msg.id || '';
+    if(msg.system){
+        div.textContent = msg.text;
+        div.style.background = '#444';
+    } else {
+        div.innerHTML = `<strong style="color:${getColor(msg.user)}">${msg.user}</strong>: <span class="text">${msg.text}</span> <span>${msg.time}</span>`;
+        div.style.background = '#333';
+        if(msg.user === username){
+            const editBtn = document.createElement('button');
+            editBtn.textContent = '✏️';
+            editBtn.onclick = () => {
+                const newText = prompt("Edit your message:", msg.text);
+                if(newText) socket.emit('edit message', { id: msg.id, newText });
+            };
+            const delBtn = document.createElement('button');
+            delBtn.textContent = '🗑️';
+            delBtn.onclick = () => socket.emit('delete message', msg.id);
+            div.appendChild(editBtn);
+            div.appendChild(delBtn);
+        }
+    }
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
 
 function getColor(user){
+    if(!userColors) userColors = {};
     if(userColors[user]) return userColors[user];
     const color = colors[Math.floor(Math.random() * colors.length)];
     userColors[user] = color;
     return color;
 }
 
-function addMessage(msg){
-    const div = document.createElement('div');
-    div.classList.add('message');
-    div.classList.add(msg.user === username ? 'right' : 'left');
-
-    const nameSpan = document.createElement('span');
-    nameSpan.className = 'username';
-    nameSpan.style.color = getColor(msg.user);
-    nameSpan.textContent = msg.user + ": ";
-
-    const textSpan = document.createElement('span');
-    textSpan.textContent = msg.text;
-
-    div.appendChild(nameSpan);
-    div.appendChild(textSpan);
-    messagesDiv.appendChild(div);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-// Sending messages
-button.addEventListener('click', () => {
-    const msg = input.value.trim();
-    if(msg){
-        socket.emit('chat message', msg);
-        input.value = '';
+// Set username and show chat
+setUsernameBtn.addEventListener('click', () => {
+    const val = usernameInput.value.trim();
+    if(val){
+        username = val;
+        userColor = colors[Math.floor(Math.random() * colors.length)];
+        socket.emit('set username', username);
+        usernameContainer.classList.add('hidden');
+        messagesDiv.classList.remove('hidden');
+        input.parentElement.classList.remove('hidden');
     }
 });
-input.addEventListener('keypress', e => { if(e.key==='Enter') button.click(); });
 
-// Receiving messages
+button.addEventListener('click', () => {
+    const msg = input.value.trim();
+    if(msg){ socket.emit('chat message', msg); input.value = ''; }
+});
+input.addEventListener('keypress', (e) => { if(e.key==='Enter') button.click(); });
+
 socket.on('chat message', addMessage);
-
-// Update users
+socket.on('edit message', ({id,newText}) => {
+    const div = document.querySelector(`.message[data-id="${id}"]`);
+    if(div) div.querySelector('.text').textContent = newText;
+});
+socket.on('delete message', id => {
+    const div = document.querySelector(`.message[data-id="${id}"]`);
+    if(div) div.remove();
+});
 socket.on('update users', users => {
     userList.innerHTML = '';
-    users.forEach(u => {
-        const li = document.createElement('li');
-        li.textContent = u;
-        userList.appendChild(li);
-    });
+    users.forEach(u => { const li=document.createElement('li'); li.textContent=u; userList.appendChild(li); });
 });
-
-// Typing indicator
-socket.on('typing', user => {
-    if(user) status.textContent = user + ' is typing...';
-    else status.textContent = '';
-});
+socket.on('load messages', msgs => { msgs.forEach(addMessage); });
 </script>
-
 </body>
 </html>

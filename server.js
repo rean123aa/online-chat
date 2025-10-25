@@ -7,31 +7,60 @@ const PORT = process.env.PORT || 3000;
 app.use(express.static('public'));
 
 let users = {};
-let typingUsers = new Set();
+let messages = [];
 
-io.on('connection', socket => {
-    socket.on('set username', name => {
-        socket.username = name;
-        users[socket.id] = name;
+// Handle socket connections
+io.on('connection', (socket) => {
+    console.log(`User connected: ${socket.id}`);
+
+    // Set username when user joins
+    socket.on('set username', (username) => {
+        users[socket.id] = username;
+        socket.emit('load messages', messages); // send previous messages
         io.emit('update users', Object.values(users));
+        io.emit('chat message', { text: `${username} joined the chat`, system: true, time: new Date().toLocaleTimeString('en-US', { hour12: false, timeZone: 'America/New_York' }) });
     });
 
-    socket.on('chat message', msg => {
-        io.emit('chat message', { user: socket.username, text: msg });
+    // Handle chat messages
+    socket.on('chat message', (msg) => {
+        const messageObj = {
+            id: Date.now() + Math.random().toString(36).substring(2, 7),
+            user: users[socket.id] || 'Unknown',
+            text: msg,
+            time: new Date().toLocaleTimeString('en-US', { hour12: false, timeZone: 'America/New_York' })
+        };
+        messages.push(messageObj);
+        io.emit('chat message', messageObj);
     });
 
-    socket.on('typing', isTyping => {
-        if(isTyping) typingUsers.add(socket.username);
-        else typingUsers.delete(socket.username);
-        const typingUser = Array.from(typingUsers).find(u => u !== socket.username);
-        io.emit('typing', typingUser || '');
+    // Edit messages
+    socket.on('edit message', ({ id, newText }) => {
+        const msg = messages.find(m => m.id === id);
+        if(msg && users[socket.id] === msg.user){
+            msg.text = newText;
+            io.emit('edit message', { id, newText });
+        }
     });
 
+    // Delete messages
+    socket.on('delete message', (id) => {
+        const index = messages.findIndex(m => m.id === id);
+        if(index !== -1 && users[socket.id] === messages[index].user){
+            messages.splice(index, 1);
+            io.emit('delete message', id);
+        }
+    });
+
+    // Remove user on disconnect
     socket.on('disconnect', () => {
+        const username = users[socket.id];
         delete users[socket.id];
-        typingUsers.delete(socket.username);
         io.emit('update users', Object.values(users));
+        if(username) io.emit('chat message', { text: `${username} left the chat`, system: true, time: new Date().toLocaleTimeString('en-US', { hour12: false, timeZone: 'America/New_York' }) });
+        console.log(`User disconnected: ${socket.id}`);
     });
 });
 
-http.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+http.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
