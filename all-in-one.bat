@@ -5,11 +5,11 @@ REM ===========================
 REM ASCII Art + Title
 REM ===========================
 echo.
-echo     ****     ****          
+echo     ****     ****          Hello Ethan
 echo   ******** ********
-echo  *******************     i wanna slit ur throat ren ren :) 
-echo   *****************         fucking slut and whore 
-echo    ***************                  slave :3
+echo  *******************
+echo   *****************
+echo    ***************
 echo      ***********
 echo        *******
 echo          ***
@@ -20,9 +20,9 @@ pause >nul
 
 REM ======== Path to Cursor executable ========
 set "cursorPath=C:\Program Files\cursor\Cursor.exe"
-REM ==========================================
+REM ===========================================
 
-REM Project folder
+REM Project folder (folder containing this bat)
 set "folder=%~dp0"
 
 REM Paths to files
@@ -68,17 +68,20 @@ if /i "%choice%"=="html" (
     goto ask
 )
 
-REM ====== Git auto-setup if not already a repo ======
+REM ====== Git setup if repo missing ======
 if not exist "%folder%.git" (
-    echo [%time%] Git repository not found. Initializing...
+    echo [%time%] Git repo not found. Initializing...
     git init
     git remote add origin https://github.com/rean123aa/online-chat.git
+    echo # Ignore everything except project files > "%folder%.gitignore"
+    echo !index.html >> "%folder%.gitignore"
+    echo !server.js >> "%folder%.gitignore"
     git add .
     git commit -m "Initial commit"
     echo [%time%] Git initialized and initial commit done.
 )
 
-REM Generate initial hashes in variables
+REM ====== Generate initial hashes ======
 if %checkHtml%==1 for /f "tokens=1,*" %%a in ('certutil -hashfile "%htmlFile%" SHA256 ^| findstr /v /c:"hash" /c:"CertUtil"') do set "hhash=%%a%%b"
 if %checkServer%==1 for /f "tokens=1,*" %%a in ('certutil -hashfile "%jsFile%" SHA256 ^| findstr /v /c:"hash" /c:"CertUtil"') do set "shash=%%a%%b"
 
@@ -109,9 +112,8 @@ if %change%==0 (
     goto monitor
 )
 
+REM ======= Deployment =======
 echo [%time%] Changes detected! Deploying...
-
-REM Git deployment
 git add .
 git commit -m "Auto-update" >nul 2>&1
 git pull origin main --rebase --quiet
@@ -123,11 +125,11 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
-REM Open Render link automatically in default browser
+REM ======= Open Render link =======
 echo [%time%] Deployed! Opening Render link...
 start "" "https://online-chat-1-dd3k.onrender.com"
 
-REM Beep notification
+REM ======= Notification beep =======
 powershell -c "[console]::beep(800,200); Start-Sleep -Milliseconds 100; [console]::beep(1000,200)"
 
 echo.
